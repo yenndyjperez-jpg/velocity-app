@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Velocity - Pasajero</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f6f9; margin: 0; padding: 20px; }
+        .box { background: white; padding: 20px; border-radius: 12px; max-width: 450px; margin: 0 auto 20px auto; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        input, select, button { width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; }
+        button { background: #007bff; color: white; font-weight: bold; border: none; cursor: pointer; }
+        .hidden { display: none; }
+        .conductor-card { border: 2px solid #28a745; text-align: center; background: #eef9f1; }
+        .conductor-card img { width: 100%; height: 200px; object-fit: cover; border-radius: 8px; }
+    </style>
+</head>
+<body>
+
+    <!-- 1. FORMULARIO DE REGISTRO PASAJERO -->
+    <div id="registro-box" class="box">
+        <h2>📝 Registro de Pasajero</h2>
+        <form id="form-registro">
+            <input type="text" name="cedula" placeholder="Cédula de Identidad" required>
+            <input type="text" name="nombre" placeholder="Nombre completo" required>
+            <input type="date" name="fecha_nacimiento" required>
+            <input type="tel" name="telefono" placeholder="Número de teléfono" required>
+            <select name="sexo" required>
+                <option value="">Selecciona sexo</option>
+                <option value="Masculino">Masculino</option>
+                <option value="Femenino">Femenino</option>
+                <option value="Otro">Otro</option>
+            </select>
+            <button type="submit">Registrarme e Iniciar</button>
+        </form>
+    </div>
+
+    <!-- 2. FORMULARIO SOLICITUD DE SERVICIO -->
+    <div id="servicio-box" class="box hidden">
+        <h2>🚗 Solicitar Servicio</h2>
+        
+        <label><b>Tipo de Servicio:</b></label>
+        <select id="tipo_servicio" onchange="cambiarTipoServicio()">
+            <option value="Para mí">Pedir para mí</option>
+            <option value="Para otra persona">Pedir para otra persona</option>
+            <option value="Entregar paquete">Entregar un paquete (Delivery)</option>
+        </select>
+
+        <div id="campo-detalles" class="hidden">
+            <input type="text" id="detalles_adicionales" placeholder="Nombre/Teléfono de quien recibe o detalles del paquete">
+        </div>
+
+        <button onclick="obtenerUbicacionOrigen()" style="background: #17a2b8;">📍 Obtener mi Ubicación Actual Exacta</button>
+        <p id="status-origen" style="font-size: 12px; color: gray;"></p>
+
+        <input type="text" id="destino_direccion" placeholder="Dirección de Destino (Ej: C.C. Puente Real)" required>
+        
+        <button onclick="enviarSolicitud()" style="background: #28a745; margin-top: 15px;">Confirmar y Solicitar</button>
+    </div>
+
+    <!-- 3. TARJETA DEL CONDUCTOR (CUANDO ACEPTA EL VIAJE) -->
+    <div id="conductor-box" class="box conductor-card hidden">
+        <h3>⚡ ¡Conductor en Camino!</h3>
+        <img id="conductor-foto" src="" alt="Foto del vehículo">
+        <h4 id="conductor-nombre"></h4>
+        <p id="conductor-vehiculo" style="color: #555; font-weight: bold;"></p>
+        <a id="conductor-telefono" href="" style="display: block; padding: 10px; background: #25d366; color: white; border-radius: 8px; text-decoration: none;">📞 Llama a tu Conductor</a>
+    </div>
+
+    <script>
+        let pasajeroId = localStorage.getItem('pasajero_id');
+        let origenLat = 0, origenLon = 0, destinoLat = 10.136, destinoLon = -64.686; // Coordenadas base
+
+        if (pasajeroId) {
+            document.getElementById('registro-box').classList.add('hidden');
+            document.getElementById('servicio-box').classList.remove('hidden');
+        }
+
+        // Registro
+        document.getElementById('form-registro').onsubmit = async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const res = await fetch('/registro/pasajero', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.status === 'success') {
+                localStorage.setItem('pasajero_id', data.pasajero_id);
+                document.getElementById('registro-box').classList.add('hidden');
+                document.getElementById('servicio-box').classList.remove('hidden');
+            } else {
+                alert(data.mensaje);
+            }
+        };
+
+        function cambiarTipoServicio() {
+            const tipo = document.getElementById('tipo_servicio').value;
+            const campo = document.getElementById('campo-detalles');
+            if (tipo !== 'Para mí') {
+                campo.classList.remove('hidden');
+            } else {
+                campo.classList.add('hidden');
+            }
+        }
+
+        // GPS Exacto Google Maps
+        function obtenerUbicacionOrigen() {
+            const status = document.getElementById('status-origen');
+            status.innerText = "Obteniendo GPS...";
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    origenLat = pos.coords.latitude;
+                    origenLon = pos.coords.longitude;
+                    status.innerText = `Ubicación Exacta Capturada (${origenLat.toFixed(4)}, ${origenLon.toFixed(4)})`;
+                },
+                (err) => { status.innerText = "Error al obtener GPS. Activa la ubicación."; }
+            );
+        }
+
+        async function enviarSolicitud() {
+            const payload = {
+                pasajero_id: localStorage.getItem('pasajero_id'),
+                tipo_servicio: document.getElementById('tipo_servicio').value,
+                origen_direccion: "Ubicación GPS Compartida",
+                origen_lat: origenLat,
+                origen_lon: origenLon,
+                destino_direccion: document.getElementById('destino_direccion').value,
+                destino_lat: destinoLat,
+                destino_lon: destinoLon,
+                detalles_adicionales: document.getElementById('detalles_adicionales').value
+            };
+
+            const res = await fetch('/solicitar_servicio', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                alert("¡Solicitud enviada! Esperando conductor...");
+            }
+        }
+
+        // Función simulada para mostrar la foto y datos del conductor cuando acepta
+        function mostrarConductorAsignado(conductorId) {
+            fetch(`/pasajero/info_conductor/${conductorId}`)
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('conductor-foto').src = data.foto_vehiculo;
+                    document.getElementById('conductor-nombre').innerText = data.nombre;
+                    document.getElementById('conductor-vehiculo').innerText = `Vehículo: ${data.tipo_vehiculo}`;
+                    document.getElementById('conductor-telefono').href = `tel:${data.telefono}`;
+                    document.getElementById('conductor-box').classList.remove('hidden');
+                });
+        }
+    </script>
+</body>
+</html>
