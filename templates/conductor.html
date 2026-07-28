@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Velocity - Conductor</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #121212; color: white; padding: 20px; }
+        .box { background: #1e1e1e; padding: 20px; border-radius: 12px; max-width: 450px; margin: 0 auto 20px auto; }
+        input, select, button { width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px; border: none; box-sizing: border-box; }
+        button { background: #ff9900; color: black; font-weight: bold; cursor: pointer; }
+        .hidden { display: none; }
+        .card-solicitud { background: #2a2a2a; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 5px solid #ff9900; }
+        .btn-maps { background: #4285F4; color: white; text-decoration: none; display: inline-block; text-align: center; padding: 10px; border-radius: 6px; margin-top: 5px; width: 48%; }
+    </style>
+</head>
+<body>
+
+    <!-- REGISTRO DE CONDUCTOR -->
+    <div id="registro-conductor-box" class="box">
+        <h2>🛠️ Registro de Conductor</h2>
+        <form id="form-conductor" enctype="multipart/form-data">
+            <input type="text" name="cedula" placeholder="Cédula" required>
+            <input type="text" name="nombre" placeholder="Nombre completo" required>
+            <input type="tel" name="telefono" placeholder="Teléfono" required>
+            <select name="tipo_vehiculo" required>
+                <option value="Carro">Carro</option>
+                <option value="Moto">Moto</option>
+            </select>
+            <label style="display: block; margin-top: 10px; font-size: 13px;">📷 Foto del Vehículo / Moto:</label>
+            <input type="file" name="foto_vehiculo" accept="image/*" required>
+            <button type="submit">Registrarme como Conductor</button>
+        </form>
+    </div>
+
+    <!-- PANEL DE NOTIFICACIONES / SOLICITUDES -->
+    <div id="panel-conductor" class="box hidden">
+        <h2>🔔 Solicitudes Activas</h2>
+        <button onclick="cargarSolicitudes()">🔄 Actualizar Lista</button>
+        <div id="contenedor-solicitudes"></div>
+    </div>
+
+    <script>
+        let conductorId = localStorage.getItem('conductor_id');
+
+        if (conductorId) {
+            document.getElementById('registro-conductor-box').classList.add('hidden');
+            document.getElementById('panel-conductor').classList.remove('hidden');
+            cargarSolicitudes();
+        }
+
+        document.getElementById('form-conductor').onsubmit = async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const res = await fetch('/registro/conductor', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.status === 'success') {
+                localStorage.setItem('conductor_id', data.conductor_id);
+                document.getElementById('registro-conductor-box').classList.add('hidden');
+                document.getElementById('panel-conductor').classList.remove('hidden');
+                cargarSolicitudes();
+            } else {
+                alert(data.mensaje);
+            }
+        };
+
+        async function cargarSolicitudes() {
+            const res = await fetch('/conductor/solicitudes_pendientes');
+            const data = await res.json();
+            const cont = document.getElementById('contenedor-solicitudes');
+            cont.innerHTML = '';
+
+            data.solicitudes.forEach(s => {
+                cont.innerHTML += `
+                    <div class="card-solicitud">
+                        <h4>📌 Servicio: ${s.tipo_servicio}</h4>
+                        <p><b>Cliente:</b> ${s.pasajero} (${s.telefono})</p>
+                        ${s.detalles ? `<p><b>Detalles extra:</b> ${s.detalles}</p>` : ''}
+                        <p><b>Destino:</b> ${s.destino}</p>
+                        
+                        <div style="display: flex; justify-content: space-between;">
+                            <a href="${s.origen_maps}" target="_blank" class="btn-maps">📍 Buscar Aquí (Maps)</a>
+                            <a href="${s.destino_maps}" target="_blank" class="btn-maps" style="background:#34A853;">🏁 Llevar Aquí (Maps)</a>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+    </script>
+</body>
+</html>
